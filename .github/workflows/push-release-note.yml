@@ -12,19 +12,24 @@ jobs:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Set up Git
-        run: |
-          git config --global user.email "bot@example.com"
-          git config --global user.name "Release Bot"
+      - name: Checkout central repo
+        uses: actions/checkout@v4
+        with:
+          repository: eedugon/test-central
+          token: ${{ secrets.CENTRAL_REPO_TOKEN }}
+          path: test-central
 
-      - name: Clone central repo
+      - name: Copy release notes
         run: |
-          git clone https://github.com/eedugon/test-central.git
-          mv .release/outgoing/* test-central/releases/incoming/
+          mkdir -p test-central/releases/incoming
+          cp .release/outgoing/*.yaml test-central/releases/incoming/
 
-      - name: Commit & push to central
+      - name: Commit & push
         working-directory: test-central
         run: |
-          git add .
-          git commit -m "Add release note from microservice1"
-          git push https://x-access-token:${{ secrets.CENTRAL_REPO_TOKEN }}@github.com/eedugon/test-central.git HEAD:main
+          git config user.email "bot@example.com"
+          git config user.name  "Release Bot"
+          git add releases/incoming/*.yaml
+          git commit -m "Add release note from $(date -u +'%Y-%m-%d %H:%M:%SZ')" || echo "Nothing to commit"
+          # La URL del remoto ya incluye el token porque la configuró actions/checkout
+          git push origin HEAD:main
