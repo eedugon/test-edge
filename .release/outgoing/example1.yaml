@@ -1,0 +1,8 @@
+date: 2025-07-01
+service: login-api
+type: enhancement
+description: Improve login flow for SSO users
+products:
+  - cloud-hosted
+pr: https://github.com/tuusuario/test-edge/pull/123
+author: "@tuusuario"

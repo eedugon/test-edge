@@ -1,0 +1,30 @@
+name: Push Release Note to Central
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  send-release-note:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Set up Git
+        run: |
+          git config --global user.email "bot@example.com"
+          git config --global user.name "Release Bot"
+
+      - name: Clone central repo
+        run: |
+          git clone https://github.com/eedugon/test-central.git
+          mv .release/outgoing/* test-central/releases/incoming/
+
+      - name: Commit & push to central
+        working-directory: test-central
+        run: |
+          git add .
+          git commit -m "Add release note from microservice1"
+          git push https://x-access-token:${{ secrets.CENTRAL_REPO_TOKEN }}@github.com/eedugon/test-central.git HEAD:main
