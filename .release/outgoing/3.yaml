@@ -1,4 +1,6 @@
+date: 2025-07-08
 service: test-edge
 type: enhancement
-summary: Updated title - feature implemented
-description: ""
+pr: 3
+summary: "Updated title - feature implemented"
+description: """"
