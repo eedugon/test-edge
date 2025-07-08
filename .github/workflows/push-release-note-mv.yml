@@ -51,9 +51,10 @@ jobs:
       if: steps.detect.outputs.files_found != '0'
       run: |
         mkdir -p test-central/releases/incoming
-        # Convertimos la salida multiline en array
-        IFS=$'\n' read -d '' -r -a files <<< "${{ steps.detect.outputs.file_list }}"
-        cp "${files[@]}" test-central/releases/incoming/
+        shopt -s nullglob            # si no hay YAMLs, no pasa nada
+        for f in .release/outgoing/*.yaml; do
+          cp "$f" test-central/releases/incoming/
+        done
 
     # ─────────────────────────────────────────────────────────────
     # 5) Commit & push en repo central
