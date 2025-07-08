@@ -3,4 +3,4 @@ service: test-edge
 type: enhancement
 pr: 3
 summary: "Updated title - feature implemented"
-description: """"
+description: "\"\""
