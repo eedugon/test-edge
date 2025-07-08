@@ -59,7 +59,7 @@ jobs:
         # 🔍 Preserve existing description if any
         DESCRIPTION=""
         if [[ -f "$YAML_FILE" ]]; then
-          DESCRIPTION=$(grep '^description:' "$YAML_FILE" | sed 's/^description:[ ]*//')
+          DESCRIPTION=$(grep '^description:' "$YAML_FILE" | sed 's/^description:[ ]*//' | sed 's/^"\(.*\)"$/\1/' | sed 's/"/\\"/g')
         fi
 
         # ✍️ Write new YAML with updated fields
