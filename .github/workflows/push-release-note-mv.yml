@@ -31,26 +31,39 @@ jobs:
         # Guardamos la lista de ficheros en una salida multiline
         printf "file_list<<EOF\n%s\nEOF\n" "${files[*]}" >> $GITHUB_OUTPUT
 
-    - name: Add date field to YAMLs
-      if: steps.detect.outputs.files_found != '0'
-      shell: bash
-      run: |
-        shopt -s nullglob
-        TODAY=$(date -u +%Y-%m-%d)
-        for f in .release/outgoing/*.yaml; do
-          if grep -q '^date:' "$f"; then
-            # Update existing date line
-            sed -i "s/^date:.*/date: ${TODAY}/" "$f"
-          else
-            # Prepend date line
-            printf "date: %s\n%s" "$TODAY" "$(cat "$f")" > "$f.tmp" && mv "$f.tmp" "$f"
-          fi
-        done
-
     # Si no hay archivos → terminar el job sin error
     - name: Stop if nothing to publish
       if: steps.detect.outputs.files_found == '0'
       run: echo "No release notes to process — exiting."
+
+    - name: Add date field and rename YAMLs
+      if: steps.detect.outputs.files_found != '0'
+      shell: bash
+      run: |
+        shopt -s nullglob
+
+        # Determine the service name
+        if [[ -f .release/service-name ]]; then
+          SERVICE=$(cat .release/service-name | xargs)
+        else
+          SERVICE=$(basename "${GITHUB_REPOSITORY}")
+        fi
+
+        TODAY=$(date -u +%Y-%m-%d)
+
+        for f in .release/outgoing/*.yaml; do
+          # Add or update the 'date:' field
+          if grep -q '^date:' "$f"; then
+            sed -i "s/^date:.*/date: ${TODAY}/" "$f"
+          else
+            printf "date: %s\n%s" "$TODAY" "$(cat "$f")" > "$f.tmp" && mv "$f.tmp" "$f"
+          fi
+
+          # Rename to service-prefixed format: test-edge-2.yaml
+          BASE=$(basename "$f")                       # e.g. 2.yaml
+          NEW=".release/outgoing/${SERVICE}-${BASE}"  # e.g. .release/outgoing/test-edge-2.yaml
+          mv "$f" "$NEW"
+        done
 
     # ─────────────────────────────────────────────────────────────
     # 3) Checkout del repo central en subcarpeta
