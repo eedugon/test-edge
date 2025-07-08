@@ -1,0 +1,83 @@
+name: Push Release Note to Central
+
+on:
+  push:
+    branches:
+      - main        # el merge de tu PR acabará aquí
+
+jobs:
+  send-release-note:
+    runs-on: ubuntu-latest
+
+    steps:
+    # ─────────────────────────────────────────────────────────────
+    # 1) Checkout del repo edge (test-edge) ─ raíz del workspace
+    # ─────────────────────────────────────────────────────────────
+    - name: Checkout edge repo
+      uses: actions/checkout@v4
+
+    # ─────────────────────────────────────────────────────────────
+    # 2) Detectar si hay YAMLs pendientes
+    # ─────────────────────────────────────────────────────────────
+    - name: Detect YAMLs in .release/outgoing
+      id: detect
+      run: |
+        shopt -s nullglob
+        files=(.release/outgoing/*.yaml)
+        echo "files_found=${#files[@]}" >> $GITHUB_OUTPUT
+        # Guardamos la lista de ficheros en una salida multiline
+        printf "file_list<<EOF\n%s\nEOF\n" "${files[*]}" >> $GITHUB_OUTPUT
+
+    # Si no hay archivos → terminar el job sin error
+    - name: Stop if nothing to publish
+      if: steps.detect.outputs.files_found == '0'
+      run: echo "No release notes to process — exiting."
+
+    # ─────────────────────────────────────────────────────────────
+    # 3) Checkout del repo central en subcarpeta
+    # ─────────────────────────────────────────────────────────────
+    - name: Checkout central repo
+      if: steps.detect.outputs.files_found != '0'
+      uses: actions/checkout@v4
+      with:
+        repository: eedugon/test-central            # 🔁 tu repo central
+        token: ${{ secrets.CENTRAL_REPO_TOKEN }}    # PAT con contents:rw
+        path: test-central
+
+    # ─────────────────────────────────────────────────────────────
+    # 4) Copiar YAMLs al directorio incoming/ en central
+    # ─────────────────────────────────────────────────────────────
+    - name: Copy YAMLs to central
+      if: steps.detect.outputs.files_found != '0'
+      run: |
+        mkdir -p test-central/releases/incoming
+        # Convertimos la salida multiline en array
+        IFS=$'\n' read -d '' -r -a files <<< "${{ steps.detect.outputs.file_list }}"
+        cp "${files[@]}" test-central/releases/incoming/
+
+    # ─────────────────────────────────────────────────────────────
+    # 5) Commit & push en repo central
+    # ─────────────────────────────────────────────────────────────
+    - name: Commit & push to central
+      if: steps.detect.outputs.files_found != '0'
+      working-directory: test-central
+      run: |
+        git config user.email "edge-bot@example.com"
+        git config user.name  "Edge Release Bot"
+        git add releases/incoming/*.yaml
+        git commit -m "Add release notes from $GITHUB_REPOSITORY [skip ci]" || echo "No changes"
+        git push origin HEAD:main
+
+    # ─────────────────────────────────────────────────────────────
+    # 6) Mover YAMLs a .release/processed/ y hacer commit en edge
+    # ─────────────────────────────────────────────────────────────
+    - name: Move YAMLs to processed
+      if: steps.detect.outputs.files_found != '0'
+      run: |
+        mkdir -p .release/processed
+        IFS=$'\n' read -d '' -r -a files <<< "${{ steps.detect.outputs.file_list }}"
+        git config user.email "edge-bot@example.com"
+        git config user.name  "Edge Release Bot"
+        git mv "${files[@]}" .release/processed/
+        git commit -m "chore(release-notes): move processed YAMLs [skip ci]" || echo "No changes"
+        git push origin HEAD:main

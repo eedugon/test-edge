@@ -23,6 +23,9 @@ jobs:
         run: |
           mkdir -p test-central/releases/incoming
           cp .release/outgoing/*.yaml test-central/releases/incoming/
+          mkdir -p .release/processed
+          mv .release/outgoing/*.yaml .release/processed/
+          git add 
 
       - name: Commit & push
         working-directory: test-central

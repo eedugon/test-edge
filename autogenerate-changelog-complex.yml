@@ -1,0 +1,89 @@
+name: Autogenerate changelog YAML
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+jobs:
+  changelog:
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1) Checkout del branch del PR
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    # 2) Instala jq (ya está en ubuntu-latest, pero por si cambia el runner)
+    - run: sudo apt-get update && sudo apt-get -y install jq
+
+    # 3) Extrae metadatos y genera YAML
+    - name: Build changelog YAML
+      id: build_yaml
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        PR_NUM="${{ github.event.pull_request.number }}"
+        PR_URL="${{ github.event.pull_request.html_url }}"
+        TITLE="${{ github.event.pull_request.title }}"
+        AUTHOR="@${{ github.event.pull_request.user.login }}"
+        TODAY=$(date +%Y-%m-%d)
+        SERVICE="${GITHUB_REPOSITORY##*/}"      # nombre del repo
+
+        # ---------- labels ----------
+        LABELS_JSON='${{ toJson(github.event.pull_request.labels) }}'
+        AREA=$(echo "$LABELS_JSON" | jq -r '[.[]|select(.name|test("^(area\\/|area:)"))][0].name // empty' | \
+               sed -E 's/^area[/:]//')
+        TYPE=$(echo "$LABELS_JSON" | jq -r '[.[]|select(.name|startswith("type/"))][0].name // empty' | \
+               sed -E 's/^type\///')
+        HAS_HIGHLIGHT=$(echo "$LABELS_JSON" | jq -r '[.[]|select(.name=="highlight" or .name=="notable")]|length')
+
+        # ---------- summary ----------
+        BODY="${{ github.event.pull_request.body || '' }}"
+        SUMMARY_LINE=$(printf '%s\n' "$BODY" | grep -i -m1 '^Changelog summary:' || true)
+        if [[ -n "$SUMMARY_LINE" ]]; then
+          SUMMARY=${SUMMARY_LINE#*:}
+          SUMMARY=$(echo "$SUMMARY" | sed 's/^[[:space:]]*//')
+        else
+          SUMMARY="$TITLE"
+        fi
+
+        # ---------- issues ----------
+        mapfile -t ISSUES < <(printf '%s\n' "$BODY" | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+        ISSUE_LIST=$(printf ", %s" "${ISSUES[@]}")
+        ISSUE_LIST="${ISSUE_LIST:2}" # quita la coma inicial
+
+        # ---------- crea directorio y YAML ----------
+        mkdir -p .release/outgoing
+        YAML_FILE=".release/outgoing/${PR_NUM}.yaml"
+
+        {
+          echo "pr: $PR_NUM"
+          echo "summary: \"$SUMMARY\""
+          [[ -n "$AREA" ]] && echo "area: $AREA"
+          [[ -n "$TYPE" ]] && echo "type: $TYPE"
+          [[ -n "$ISSUE_LIST" ]] && echo "issues: [${ISSUE_LIST}]"
+          [[ "$HAS_HIGHLIGHT" != "0" ]] && cat <<EOF
+highlight:
+  title: "$SUMMARY"
+  body: |
+    <!-- rellena aquí una descripción más extensa si hace falta -->
+  notable: true
+EOF
+        } > "$YAML_FILE"
+
+        echo "yaml_path=$YAML_FILE" >> "$GITHUB_OUTPUT"
+
+    # 4) Commit + push (solo si se creó/actualizó el YAML)
+    - name: Commit changelog YAML to PR branch
+      if: success()  # siempre que el paso anterior no haya fallado
+      run: |
+        git config user.email "release-bot@example.com"
+        git config user.name  "Release Note Bot"
+        git add "${{ steps.build_yaml.outputs.yaml_path }}"
+        git commit -m "chore: add changelog for PR #${{ github.event.pull_request.number }}" \
+          --allow-empty
+        git push origin HEAD

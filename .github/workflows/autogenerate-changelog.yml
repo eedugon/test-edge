@@ -1,0 +1,67 @@
+name: Autogenerate simple changelog YAML
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+jobs:
+  build_yaml:
+    if: |
+      github.event.pull_request.base.ref == 'main' &&
+      contains(join(github.event.pull_request.labels.*.name, ','), 'release_notes')
+
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1) Checkout del branch del PR
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    # 2) Determinar nombre de servicio
+    - id: service
+      run: |
+        if [[ -f ".release/service-name" ]]; then
+          NAME=$(cat .release/service-name | tr -d '[:space:]')
+        else
+          NAME="${GITHUB_REPOSITORY##*/}"   # nombre del repo
+        fi
+        echo "service_name=$NAME" >> "$GITHUB_OUTPUT"
+
+    # 3) Encontrar label de tipo
+    - id: type
+      shell: bash
+      run: |
+        LABELS='${{ toJson(github.event.pull_request.labels) }}'
+        TYPE=$(echo "$LABELS" | jq -r '[.[]|select(.name|startswith("type/"))][0].name // ""' | sed 's/^type\///')
+        echo "type_value=$TYPE" >> "$GITHUB_OUTPUT"
+
+    # 4) Generar / actualizar YAML
+    - name: Write YAML file
+      run: |
+        set -euo pipefail
+        mkdir -p .release/outgoing
+
+        YAML_FILE=".release/outgoing/${{ github.event.pull_request.number }}.yaml"
+        SERVICE="${{ steps.service.outputs.service_name }}"
+        TYPE="${{ steps.type.outputs.type_value }}"
+        SUMMARY="${{ github.event.pull_request.title }}"
+
+        cat > "$YAML_FILE" <<EOF
+service: ${SERVICE}
+type: ${TYPE:-unlabeled}
+summary: ${SUMMARY//:/-}
+description: ""
+EOF
+        echo "yaml_path=$YAML_FILE" >> "$GITHUB_OUTPUT"
+
+    # 5) Commit & push si cambió algo
+    - name: Commit YAML to PR branch
+      run: |
+        git config user.email "release-bot@example.com"
+        git config user.name  "Release Note Bot"
+        git add "${{ steps.write_yaml.outputs.yaml_path }}"
+        git commit -m "chore: add changelog for PR #${{ github.event.pull_request.number }}" \
+          --allow-empty
+        git push origin HEAD
