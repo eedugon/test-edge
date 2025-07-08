@@ -1,0 +1,4 @@
+service: test-edge
+type: fix
+summary: newline added to the code
+description: ""
