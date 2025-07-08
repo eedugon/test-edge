@@ -75,10 +75,15 @@ jobs:
     - name: Move YAMLs to processed
       if: steps.detect.outputs.files_found != '0'
       run: |
+        set -euo pipefail
+        shopt -s nullglob           # hace que *.yaml → lista vacía si no hay ficheros
         mkdir -p .release/processed
-        IFS=$'\n' read -d '' -r -a files <<< "${{ steps.detect.outputs.file_list }}"
+
+        for f in .release/outgoing/*.yaml; do
+          git mv "$f" .release/processed/
+        done
+
         git config user.email "edge-bot@example.com"
         git config user.name  "Edge Release Bot"
-        git mv "${files[@]}" .release/processed/
         git commit -m "chore(release-notes): move processed YAMLs [skip ci]" || echo "No changes"
         git push origin HEAD:main
