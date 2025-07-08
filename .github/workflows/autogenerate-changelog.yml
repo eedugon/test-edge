@@ -49,11 +49,11 @@ jobs:
         SUMMARY="${{ github.event.pull_request.title }}"
 
         cat > "$YAML_FILE" <<EOF
-service: ${SERVICE}
-type: ${TYPE:-unlabeled}
-summary: ${SUMMARY//:/-}
-description: ""
-EOF
+        service: ${SERVICE}
+        type: ${TYPE:-unlabeled}
+        summary: ${SUMMARY//:/-}
+        description: ""
+        EOF
         echo "yaml_path=$YAML_FILE" >> "$GITHUB_OUTPUT"
 
     # 5) Commit & push si cambió algo
