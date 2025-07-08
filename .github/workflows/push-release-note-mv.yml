@@ -1,4 +1,7 @@
 name: Push Release Note to Central
+permissions:
+  contents: write      # permite git push y creación de archivos
+  pull-requests: write # (opcional) por si editas el PR
 
 on:
   push:

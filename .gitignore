@@ -1,0 +1,2 @@
+# Don't track processed changelogs
+.release/processed/
