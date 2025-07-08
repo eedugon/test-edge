@@ -31,6 +31,22 @@ jobs:
         # Guardamos la lista de ficheros en una salida multiline
         printf "file_list<<EOF\n%s\nEOF\n" "${files[*]}" >> $GITHUB_OUTPUT
 
+    - name: Add date field to YAMLs
+      if: steps.detect.outputs.files_found != '0'
+      shell: bash
+      run: |
+        shopt -s nullglob
+        TODAY=$(date -u +%Y-%m-%d)
+        for f in .release/outgoing/*.yaml; do
+          if grep -q '^date:' "$f"; then
+            # Update existing date line
+            sed -i "s/^date:.*/date: ${TODAY}/" "$f"
+          else
+            # Prepend date line
+            printf "date: %s\n%s" "$TODAY" "$(cat "$f")" > "$f.tmp" && mv "$f.tmp" "$f"
+          fi
+        done
+
     # Si no hay archivos → terminar el job sin error
     - name: Stop if nothing to publish
       if: steps.detect.outputs.files_found == '0'
