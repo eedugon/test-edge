@@ -38,7 +38,8 @@ jobs:
         echo "type_value=$TYPE" >> "$GITHUB_OUTPUT"
 
     # 4) Generar / actualizar YAML
-    - name: Write YAML file
+    - id: write_yaml
+      name: Write YAML file
       run: |
         set -euo pipefail
         mkdir -p .release/outgoing
@@ -61,7 +62,12 @@ jobs:
       run: |
         git config user.email "release-bot@example.com"
         git config user.name  "Release Note Bot"
-        git add "${{ steps.write_yaml.outputs.yaml_path }}"
-        git commit -m "chore: add changelog for PR #${{ github.event.pull_request.number }}" \
-          --allow-empty
-        git push origin HEAD
+        FILE="${{ steps.write_yaml.outputs.yaml_path }}"
+        if [[ -n "$FILE" && -f "$FILE" ]]; then
+          git add "$FILE"
+          git commit -m "chore: add changelog for PR #${{ github.event.pull_request.number }}" \
+            --allow-empty
+          git push origin HEAD
+        else
+          echo "⚠️  No YAML file generated — skipping commit"
+        fi
