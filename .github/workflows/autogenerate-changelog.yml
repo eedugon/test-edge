@@ -47,17 +47,32 @@ jobs:
         set -euo pipefail
         mkdir -p .release/outgoing
 
-        YAML_FILE=".release/outgoing/${{ github.event.pull_request.number }}.yaml"
+        PR_NUMBER="${{ github.event.pull_request.number }}"
+        YAML_FILE=".release/outgoing/${PR_NUMBER}.yaml"
+        TMP_FILE="${YAML_FILE}.tmp"
+
         SERVICE="${{ steps.service.outputs.service_name }}"
         TYPE="${{ steps.type.outputs.type_value }}"
         SUMMARY="${{ github.event.pull_request.title }}"
+        TODAY=$(date -u +%Y-%m-%d)
 
-        cat > "$YAML_FILE" <<EOF
-        service: ${SERVICE}
-        type: ${TYPE:-unlabeled}
-        summary: ${SUMMARY//:/-}
-        description: ""
-        EOF
+        # 🔍 Preserve existing description if any
+        DESCRIPTION=""
+        if [[ -f "$YAML_FILE" ]]; then
+          DESCRIPTION=$(grep '^description:' "$YAML_FILE" | sed 's/^description:[ ]*//' | sed 's/^"\(.*\)"$/\1/' | sed 's/"/\\"/g')
+        fi
+
+        # ✍️ Write new YAML with updated fields
+        {
+          echo "date: ${TODAY}"
+          echo "service: ${SERVICE}"
+          echo "type: ${TYPE:-unlabeled}"
+          echo "pr: ${PR_NUMBER}"
+          echo "summary: \"${SUMMARY//\"/\\\"}\""
+          echo "description: \"${DESCRIPTION}\""
+        } > "$TMP_FILE"
+
+        mv "$TMP_FILE" "$YAML_FILE"
         echo "yaml_path=$YAML_FILE" >> "$GITHUB_OUTPUT"
 
     # 5) Commit & push si cambió algo
