@@ -60,9 +60,10 @@ jobs:
           fi
 
           # Rename to service-prefixed format: test-edge-2.yaml
-          BASE=$(basename "$f")                       # e.g. 2.yaml
-          NEW=".release/outgoing/${SERVICE}-${BASE}"  # e.g. .release/outgoing/test-edge-2.yaml
-          mv "$f" "$NEW"
+          # rename removed
+          # BASE=$(basename "$f")                       # e.g. 2.yaml
+          # NEW=".release/outgoing/${SERVICE}-${BASE}"  # e.g. .release/outgoing/test-edge-2.yaml
+          # mv "$f" "$NEW"
         done
 
     # ─────────────────────────────────────────────────────────────

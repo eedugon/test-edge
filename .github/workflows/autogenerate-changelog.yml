@@ -47,14 +47,19 @@ jobs:
         set -euo pipefail
         mkdir -p .release/outgoing
 
-        PR_NUMBER="${{ github.event.pull_request.number }}"
-        YAML_FILE=".release/outgoing/${PR_NUMBER}.yaml"
-        TMP_FILE="${YAML_FILE}.tmp"
-
+        # --- NEW FILENAME CONVENTION ---
+        TODAY=$(date -u +%Y-%m-%d)
         SERVICE="${{ steps.service.outputs.service_name }}"
         TYPE="${{ steps.type.outputs.type_value }}"
+        if [[ -z "$TYPE" ]]; then
+          TYPE="unlabeled"
+        fi
+        PR_NUMBER="${{ github.event.pull_request.number }}"
+
+        YAML_FILE=".release/outgoing/${TODAY}_${TYPE}_${SERVICE}_pr${PR_NUMBER}.yaml"
+        TMP_FILE="${YAML_FILE}.tmp"
+
         SUMMARY="${{ github.event.pull_request.title }}"
-        TODAY=$(date -u +%Y-%m-%d)
 
         # 🔍 Preserve existing description if any
         DESCRIPTION=""
@@ -62,14 +67,16 @@ jobs:
           DESCRIPTION=$(grep '^description:' "$YAML_FILE" | sed 's/^description:[ ]*//' | sed 's/^"\(.*\)"$/\1/' | sed 's/"/\\"/g')
         fi
 
-        # ✍️ Write new YAML with updated fields
+        # --- WRITE YAML ---
         {
-          echo "date: ${TODAY}"
-          echo "service: ${SERVICE}"
-          echo "type: ${TYPE:-unlabeled}"
-          echo "pr: ${PR_NUMBER}"
-          echo "summary: \"${SUMMARY//\"/\\\"}\""
-          echo "description: \"${DESCRIPTION}\""
+          echo "date: ${TODAY}"              # ISO date (mandatory)
+          echo "type: ${TYPE}"               # enhancement | fix | ...
+          echo "service: ${SERVICE}"         # microservice/component
+          echo "pr: ${PR_NUMBER}"            # integer only
+          echo "summary: \"${SUMMARY//\"/\\\"}\""   # short sentence
+          echo "issues: []"                  # optional - empty list by default
+          echo "author: \"${{ github.actor }}\""    # optional - GitHub user who opened PR
+          echo "description: \"${DESCRIPTION//\"/\\\"}\""   # optional
         } > "$TMP_FILE"
 
         mv "$TMP_FILE" "$YAML_FILE"
