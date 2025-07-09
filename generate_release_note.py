@@ -67,4 +67,9 @@ with file_path.open("w", encoding="utf-8") as f:
     # use default_flow_style=False for multi-line readability
     yaml.safe_dump(release_note, f, sort_keys=False)
 
+# 👉 ALSO print the YAML to the console
+print("\n--- generated YAML ---")
+print(yaml.safe_dump(release_note, sort_keys=False))
+print("----------------------")
+
 print(f"[OK] Release note written to {file_path.relative_to(Path.cwd())}")
