@@ -50,7 +50,10 @@ jobs:
         # --- NEW FILENAME CONVENTION ---
         TODAY=$(date -u +%Y-%m-%d)
         SERVICE="${{ steps.service.outputs.service_name }}"
-        TYPE="${{ steps.type.outputs.type_value:-unlabeled}}"   # default if no label
+        TYPE="${{ steps.type.outputs.type_value }}"
+        if [[ -z "$TYPE" ]]; then
+          TYPE="unlabeled"
+        fi
         PR_NUMBER="${{ github.event.pull_request.number }}"
 
         YAML_FILE=".release/outgoing/${TODAY}_${TYPE}_${SERVICE}_pr${PR_NUMBER}.yaml"
